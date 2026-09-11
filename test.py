@@ -5,9 +5,10 @@ at t+1, t+2, t+3 hours ahead, handles the ~0.88% class imbalance with
 scale_pos_weight and (optionally) SMOTE, evaluates with F1/Recall/ROC-AUC/
 PR-AUC (NOT accuracy), and runs SHAP for explainability.
 
-Run: python 05_modeling.py
-Output: metrics printed + saved to model_results.csv, SHAP plots saved to
-        ./shap_plots/, trained models saved to ./models/
+Run from the repository root:
+    python test.py
+Output: metrics printed + saved to notebooks/model_results.csv, SHAP plots
+saved to notebooks/shap_plots/, trained models saved to notebooks/models/
 """
 
 import pandas as pd
