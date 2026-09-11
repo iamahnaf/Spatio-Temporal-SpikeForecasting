@@ -17,22 +17,22 @@ import shap
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import os
 import joblib
+from pathlib import Path
 from sklearn.metrics import (
     f1_score, recall_score, precision_score, roc_auc_score,
     average_precision_score, confusion_matrix
 )
 from imblearn.over_sampling import SMOTE
 
-TRAIN_PATH = "train_features_v2.csv"
-TEST_PATH = "test_features_v2.csv"
+PROJECT_DIR = Path(__file__).resolve().parent
+DATA_DIR = PROJECT_DIR / "notebooks"
+TRAIN_PATH = DATA_DIR / "train_features_v2.csv"
+TEST_PATH = DATA_DIR / "test_features_v2.csv"
 HORIZONS = [1, 2, 3]
 USE_SMOTE = True          # set False to rely on scale_pos_weight only
-MODELS_DIR = "models"
-SHAP_DIR = "shap_plots"
-os.makedirs(MODELS_DIR, exist_ok=True)
-os.makedirs(SHAP_DIR, exist_ok=True)
+MODELS_DIR = DATA_DIR / "models"
+SHAP_DIR = DATA_DIR / "shap_plots"
 
 # Columns that are identifiers, raw target leakage risks, or already
 # re-encoded elsewhere (wd -> wind_u/v, year/month/day/hour -> cyclical +
@@ -46,6 +46,14 @@ NON_FEATURE_COLS = [
 def load_data():
     train = pd.read_csv(TRAIN_PATH)
     test = pd.read_csv(TEST_PATH)
+    required_cols = {"datetime", "station", *[f"spike_t+{h}" for h in HORIZONS]}
+    missing_train = required_cols.difference(train.columns)
+    missing_test = required_cols.difference(test.columns)
+    if missing_train or missing_test:
+        raise ValueError(
+            "Feature files are missing required columns: "
+            f"train={sorted(missing_train)}, test={sorted(missing_test)}"
+        )
     train["datetime"] = pd.to_datetime(train["datetime"])
     test["datetime"] = pd.to_datetime(test["datetime"])
     return train, test
@@ -55,31 +63,49 @@ def get_feature_cols(df):
     return [c for c in df.columns if c not in NON_FEATURE_COLS]
 
 
-def prep_xy(df, feature_cols, target_col):
+def prep_xy(df, feature_cols, target_col, station_categories):
     X = df[feature_cols].copy()
     y = df[target_col].astype(int)
-    # station is the only categorical left - label encode consistently
-    X["station"] = X["station"].astype("category")
+    if not y.isin([0, 1]).all():
+        raise ValueError(f"{target_col} must contain only binary 0/1 labels")
+    X["station"] = pd.Categorical(
+        X["station"], categories=station_categories
+    )
     return X, y
 
 
 def train_one_horizon(train, test, horizon):
     target_col = f"spike_t+{horizon}"
     feature_cols = get_feature_cols(train)
+    station_categories = sorted(
+        set(train["station"].dropna()).union(test["station"].dropna())
+    )
 
-    X_train, y_train = prep_xy(train, feature_cols, target_col)
-    X_test, y_test = prep_xy(test, feature_cols, target_col)
+    X_train, y_train = prep_xy(
+        train, feature_cols, target_col, station_categories
+    )
+    X_test, y_test = prep_xy(
+        test, feature_cols, target_col, station_categories
+    )
+    if y_train.nunique() < 2 or y_test.nunique() < 2:
+        raise ValueError(
+            f"{target_col} must contain both classes in train and test sets"
+        )
 
     print(f"\n{'='*60}\nHorizon t+{horizon}h | train={len(X_train)} test={len(X_test)} "
           f"| train spike rate={y_train.mean()*100:.3f}%")
 
     scale_pos_weight = (y_train == 0).sum() / max((y_train == 1).sum(), 1)
 
-    if USE_SMOTE:
+    if USE_SMOTE and y_train.value_counts().min() >= 2:
         # SMOTE can't handle the categorical 'station' column directly ->
         # one-hot it just for the resampling step, then rebuild the frame.
         X_train_ohe = pd.get_dummies(X_train, columns=["station"])
-        sm = SMOTE(random_state=42, k_neighbors=5)
+        minority_count = y_train.value_counts().min()
+        sm = SMOTE(
+            random_state=42,
+            k_neighbors=min(5, minority_count - 1),
+        )
         X_res, y_res = sm.fit_resample(X_train_ohe, y_train)
         # collapse one-hot station back to a single categorical column for LightGBM
         station_cols = [c for c in X_res.columns if c.startswith("station_")]
@@ -119,7 +145,7 @@ def train_one_horizon(train, test, horizon):
         "roc_auc": roc_auc_score(y_test, y_pred_proba),
         "pr_auc": average_precision_score(y_test, y_pred_proba),
     }
-    tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+    tn, fp, fn, tp = confusion_matrix(y_test, y_pred, labels=[0, 1]).ravel()
     metrics.update({"tp": tp, "fp": fp, "fn": fn, "tn": tn})
 
     print(f"F1={metrics['f1']:.3f}  Recall={metrics['recall']:.3f}  "
@@ -127,7 +153,8 @@ def train_one_horizon(train, test, horizon):
           f"PR-AUC={metrics['pr_auc']:.3f}")
     print(f"Confusion matrix -> TP={tp} FP={fp} FN={fn} TN={tn}")
 
-    joblib.dump(model, f"{MODELS_DIR}/lgbm_spike_t{horizon}.joblib")
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, MODELS_DIR / f"lgbm_spike_t{horizon}.joblib")
 
     return model, X_test, y_test, metrics
 
@@ -148,7 +175,8 @@ def run_shap(model, X_test, horizon, max_display=15, sample_size=2000):
     shap.summary_plot(shap_values, X_sample, max_display=max_display, show=False)
     plt.title(f"SHAP summary - spike t+{horizon}h")
     plt.tight_layout()
-    plt.savefig(f"{SHAP_DIR}/shap_summary_t{horizon}.png", dpi=120, bbox_inches="tight")
+    SHAP_DIR.mkdir(parents=True, exist_ok=True)
+    plt.savefig(SHAP_DIR / f"shap_summary_t{horizon}.png", dpi=120, bbox_inches="tight")
     plt.close()
 
     plt.figure()
@@ -156,7 +184,7 @@ def run_shap(model, X_test, horizon, max_display=15, sample_size=2000):
                        max_display=max_display, show=False)
     plt.title(f"SHAP feature importance - spike t+{horizon}h")
     plt.tight_layout()
-    plt.savefig(f"{SHAP_DIR}/shap_bar_t{horizon}.png", dpi=120, bbox_inches="tight")
+    plt.savefig(SHAP_DIR / f"shap_bar_t{horizon}.png", dpi=120, bbox_inches="tight")
     plt.close()
 
     mean_abs_shap = pd.Series(
@@ -176,6 +204,6 @@ if __name__ == "__main__":
         run_shap(model, X_test, h)
 
     results_df = pd.DataFrame(all_metrics)
-    results_df.to_csv("model_results.csv", index=False)
+    results_df.to_csv(DATA_DIR / "model_results.csv", index=False)
     print(f"\n{'='*60}\nAll results saved to model_results.csv:")
     print(results_df.to_string(index=False))
