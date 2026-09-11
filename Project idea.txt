@@ -1,0 +1,159 @@
+# Project Proposal Specification
+
+## Project Title
+
+**Spatio-Temporal Air Pollution Spike Forecasting via Urban Emission Lags and Meteorological Pattern Mining**
+
+---
+
+## 1. Executive Summary
+
+Urban air quality modeling remains a critical challenge in modern environmental informatics. Traditional machine learning approaches often treat individual monitoring stations as isolated entities, failing to capture regional background influences across geographic space.
+
+This project proposes a **hybrid Spatio-Temporal Data Mining framework** designed to predict extreme air pollution spikes ($\text{PM}_{2.5} > 150\,\mu\text{g/m}^3$) 1 to 3 hours in advance. By incorporating **Spatial Lag Modeling (Inverse Distance Weighting)**, **Wind Vector Transformations**, **ST-DBSCAN Clustering**, and **Association Rule Mining**, the proposed pipeline models both local emission buildup and the influence of regional background pollution. An empirical ablation study will evaluate the predictive value of these spatial features over short horizons.
+
+---
+
+## 2. Problem Statement & Core Objectives
+
+### Problem Statement
+
+Standard regression models typically predict continuous mean pollutant levels at a single location. However, personal exposure alerts and hospital preparedness require early warning systems for **sudden, localized pollution surges (spikes)** driven by micro-climatic shifts. Treating spatial sensors as independent and identically distributed ($IID$) variables ignores spatial autocorrelation and regional background influences.
+
+### Core Objectives
+
+1. **Predictive Task:** Formulate pollution spike detection as a multi-step forward classification problem ($t+1, t+2, t+3$ hours) to enable rapid public health advisories.
+2. **Spatial Correlation Analysis:** Compute spatial lag features as an empirical question to test if regional background levels at 100-300km distances add predictive value in short-term forecasting.
+3. **Pattern Discovery:** Mine spatio-temporal pollution hotspots and episodes using **ST-DBSCAN** and extract inter-station occurrence rules using the **Apriori algorithm**.
+4. **Model Explainability:** Utilize **SHAP (SHapley Additive exPlanations)** to dissect whether a predicted spike is driven by local meteorological stagnation or regional covariates.
+
+---
+
+## 3. Dataset Specification
+
+* **Dataset Name:** Bangladesh Multi-Site Air Quality Dataset
+* **Source:** Custom Extracted Historical Air Quality Data
+* **Data Volume:** ~239,328 hourly observations
+* **Spatial Coverage:** 6 major divisional cities across Bangladesh (Dhaka, Chittagong, Khulna, Rajshahi, Sylhet, Barisal)
+* **Primary Attributes:**
+* **Identifiers:** Station Name, Year, Month, Day, Hour
+* **Target Pollutants:** $\text{PM}_{2.5}$, $\text{PM}_{10}$, $\text{NO}_2$, $\text{CO}$, $\text{SO}_2$, $\text{O}_3$ ($\mu\text{g/m}^3$)
+* **Meteorological Variables:** Temperature (`TEMP`), Pressure (`PRES`), Dew Point (`DEWP`), Precipitation (`RAIN`), Wind Speed (`WSPM`), Wind Direction (`wd`)
+
+
+
+---
+
+## 4. Methodological Framework & Pipeline
+
+```
+Raw Data (6 Stations) ───> Preprocessing & Target Extraction ──> Spatio-Temporal Feature Engineering
+                                                                   │
+┌──────────────────────────────────────────────────────────────────┴──────────────────────────────────┐
+│                                                                                                     │
+▼                                                                                                     ▼
+Unsupervised Pattern Mining                                                         Supervised Predictive Pipeline
+├── ST-DBSCAN (Spatio-Temporal Hotspots)                                            ├── Target Definition (PM2.5 > 150)
+└── Apriori Rules (Inter-Station Dependency)                                        ├── Dynamic Class Weighting
+                                                                                    └── Classifier Training (LightGBM/XGBoost)
+                                                                                                     │
+                                                                                                     ▼
+                                                                                            SHAP Model Interpretability
+
+```
+
+### Phase 1: Preprocessing & Data Cleaning
+
+* **Target Binarization:** Define the prediction target as a binary hazard indicator based on Bangladesh AQI "Very Unhealthy" threshold, BEFORE imputation to avoid persistent bias ($Y \in \{0, 1\}$):
+
+$$\text{Spike}_{i, t+k} = \begin{cases} 1 & \text{if true (raw) } \text{PM}_{2.5} > 150\,\mu\text{g/m}^3 \text{ at hour } t+k \\ 0 & \text{otherwise} \end{cases}$$
+
+* **Spatial Interpolation:** Handle missing sensor readings using nearest-neighbor spatial interpolation combined with forward-fill time-series imputation.
+* **Data Provenance Limitation:** The structural schema mirrors the Beijing Multi-Site dataset, mapped and adapted for Bangladesh's primary cities.
+
+---
+
+### Phase 2: Spatio-Temporal Feature Engineering
+
+1. **Spatial Lag Features ($y_{i, t}^{\text{lag}}$):**
+Using Euclidean distance ($d_{ij}$) calculated from geographic coordinates ($\text{Latitude}, \text{Longitude}$), compute Inverse Distance Weights ($w_{ij}$) for neighboring stations:
+
+$$w_{ij} = \frac{1}{d_{ij}^2}$$
+
+
+$$y_{i, t}^{\text{lag}} = \sum_{j \neq i} w_{ij} \cdot \text{PM}_{2.5}^{(j, t)}$$
+
+
+2. **Wind Vector Decomposition:**
+Convert categorical wind direction (`wd`) and continuous wind speed (`WSPM`) into orthogonal horizontal ($U$) and vertical ($V$) velocity components:
+
+$$U = - \text{WSPM} \cdot \sin(\theta_{\text{rad}}), \quad V = - \text{WSPM} \cdot \cos(\theta_{\text{rad}})$$
+
+
+3. **Urban Emission Lags:**
+Extract historical time-lagged features ($t-1, t-2, t-3$) for vehicular exhaust proxy indicators ($\text{NO}_2$ and $\text{CO}$).
+4. **Temporal Rolling Window Statistics:**
+Compute 3-hour, 6-hour, and 12-hour rolling averages and moving variances for temperature, barometric pressure, and relative humidity.
+
+---
+
+### Phase 3: Unsupervised Pattern Mining
+
+* **ST-DBSCAN Clustering:** Apply Spatio-Temporal DBSCAN to group spatially adjacent and temporally consecutive high-pollution observations. This identifies moving pollution plumes across Bangladesh over multi-hour intervals.
+* **Association Rule Mining:** Discretize continuous variables into ordinal bins and apply the **Apriori algorithm** to extract cross-location dependencies:
+
+$$\text{IF } [\text{Station A: High } \text{NO}_2] \wedge [\text{Wind Direction: SE}] \implies [\text{Station B: } \text{PM}_{2.5} \text{ Spike in 2 Hours}]$$
+
+
+
+---
+
+### Phase 4: Supervised Modeling & Imbalance Handling
+
+* **Class Imbalance Strategy:** Since extreme pollution spikes are extremely rare (less than 1% of the dataset), we dynamically adjust class weights (e.g., `scale_pos_weight` ~ 161) during model training.
+* **Algorithm Suite:** Compare tree-based ensemble models optimized for tabular spatio-temporal data:
+* **LightGBM**
+* **XGBoost**
+* **Extra Trees Classifier**
+* **Random Forest**
+
+
+
+---
+
+### Phase 5: Model Explainability (SHAP Analysis)
+
+* Apply **SHAP TreeExplainer** to calculate feature contribution scores for each predicted spike.
+* Evaluate the relative impact of **local meteorological factors** (e.g., stagnant wind, high pressure) versus **spatial lag factors** (pollutants transported from adjacent stations).
+
+---
+
+## 5. Technical Novelty & Key Differentiators
+
+| Feature Dimension | Traditional Approach | Proposed Data Mining Pipeline |
+| --- | --- | --- |
+| **Spatial Modeling** | Single-station isolation | Systematic integration of Spatial Lags with Empirical Ablation |
+| **Wind Representation** | Categorical strings (`NW`, `SE`) | Decomposed continuous vector components ($U, V$) |
+| **Pattern Discovery** | None | ST-DBSCAN Hotspot Detection + Apriori Rules |
+| **Problem Formulation** | Standard continuous regression | Multi-step extreme hazard spike classification |
+| **Interpretability** | Black-box output | Total SHAP Mass Comparison (Local vs. Spatial Drivers) |
+
+---
+
+## 6. Primary Evaluation Metrics & Expected Deliverables
+
+### Evaluation Metrics
+
+Given the severe class imbalance inherent in extreme event prediction, we prioritize minimizing False Negatives for critical health alerts:
+
+* **PR-AUC (Primary Metric)** and **F2-Score** (prioritizing Recall)
+* **Precision & Recall** at optimal decision thresholds
+* **Per-Station Breakdown** (evaluating spatial generalization)
+* **Threshold Sensitivity Analysis** (testing robustness at 100/125/150/200 $\mu\text{g/m}^3$)
+
+### Final Project Deliverables
+
+1. **Data Preprocessing & Feature Extraction Modules:** Python scripts for computing spatial matrices, wind vectors, and temporal lags.
+2. **Unsupervised Mining Outputs:** Extracted association rule tables and visualization maps of ST-DBSCAN spatio-temporal clusters.
+3. **Comparative Evaluation Report:** Benchmark performance tables comparing all baseline and tuned ensemble models.
+4. **SHAP Feature Importance Analysis:** Summary and force plots explaining individual spike predictions.
