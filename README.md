@@ -13,7 +13,7 @@ A multi-city machine learning framework for early detection of hazardous PM2.5 p
    - [Notebook 02: Preprocessing and Validation Protocol (02_preprocessing.ipynb)](#notebook-02-preprocessing-and-validation-protocol-02_preprocessingipynb)
    - [Notebook 03: Spatio-Temporal Feature Engineering (03_feature_engineering.ipynb)](#notebook-03-spatio-temporal-feature-engineering-03_feature_engineeringipynb)
    - [Notebook 04: Spatio-Temporal Pattern Mining (04_pattern_mining.ipynb)](#notebook-04-spatio-temporal-pattern-mining-04_pattern_miningipynb)
-   - [Notebook 05: Predictive Modeling and Benchmark (05_modeling.ipynb)](#notebook-05-predictive-modeling-and-benchmark-05_modelingipynb)
+   - [Notebook 05: Predictive Modeling and Evaluation (05_modeling.ipynb)](#notebook-05-predictive-modeling-and-evaluation-05_modelingipynb)
 5. [Condensed Model Performance Benchmark](#condensed-model-performance-benchmark)
 6. [Model Interpretability and Feature Attribution (SHAP)](#model-interpretability-and-feature-attribution-shap)
 7. [Recommended Production Models](#recommended-production-models)
@@ -61,8 +61,8 @@ The forecasting pipeline is structured across five sequential Jupyter notebooks 
 <img src="figures/system_architecture_pipeline.jpg" width="100%" alt="System Architecture Pipeline" />
 
 The pipeline executes through five modular stages:
-1. **Exploratory Data Analysis**: Missing data identification, temporal autocorrelation, diurnal and seasonal profile characterization.
-2. **Preprocessing and Imputation**: Linear and forward-fill interpolation for short gaps, 99th percentile Winsorization, chronological train-test partition.
+1. **Exploratory Data Analysis**: Multi-pollutant correlations, station-wise distribution, diurnal and seasonal profile characterization.
+2. **Preprocessing and Imputation**: Hourly timestamp continuity check, station-wise 99th percentile Winsorization, chronological train-test partition.
 3. **Feature Engineering**: Multi-domain feature generation spanning autoregressive lags, rolling statistics, pollutant ratios, wind vectors, and spatial IDW metrics.
 4. **Pattern Mining**: Unsupervised spatio-temporal plume clustering (ST-DBSCAN) and cross-station lag association rule mining (Apriori).
 5. **Predictive Modeling and Benchmark**: Multi-horizon gradient boosting (XGBoost, LightGBM, CatBoost), TimeSeriesSplit cross-validation, PR-AUC threshold optimization, and SHAP interpretability.
@@ -73,35 +73,32 @@ The pipeline executes through five modular stages:
 
 ### Notebook 01: Exploratory Data Analysis (`01_eda.ipynb`)
 
-Notebook 01 establishes the empirical foundations of regional air pollution in Bangladesh, analyzing data completeness, statistical distributions, multi-pollutant correlations, temporal persistence, and hazardous spike occurrences.
+Notebook 01 establishes the empirical foundations of regional air pollution in Bangladesh, analyzing criteria pollutant relationships, geographic concentration disparities, diurnal traffic cycles, and seasonal meteorological dynamics.
 
-#### Visual Collage: Complete Exploratory Analysis
-Below is the complete visual compilation of all empirical analyses generated in `01_eda.ipynb`:
+#### Visual Collage: Exploratory Data Analysis
+Below is the focused visual compilation featuring the four primary analytical plots from `01_eda.ipynb`:
 
 <img src="figures/collage_01_eda.png" width="100%" alt="Notebook 01 EDA Collage" />
 
 #### Detailed Analytical Insights
 
-1. **Multi-Pollutant and Meteorological Correlation Matrix (Row 1, Left)**:
-   - Strong collinearity is observed between **PM2.5 and PM10** ($r = 0.88$), indicating that particulate episodes consistently involve both fine combustion aerosols and coarser dust particles.
-   - Gaseous combustion markers (**CO and NO2**) exhibit positive correlations with PM2.5 ($r = 0.62$ and $r = 0.58$), confirming that vehicular exhaust and brick kiln combustion are dominant drivers.
-   - Temperature (TEMP) and Wind Speed (WSPM) display negative correlations with PM2.5, consistent with boundary layer entrapment during cold, stagnant conditions.
+1. **Feature Correlation Matrix (Top-Left)**:
+   - High positive correlation between **PM2.5 and PM10** ($r = 0.95$), indicating co-occurrence of fine combustion aerosols and coarse particulate matter during high-pollution events.
+   - Criteria combustion gases (**CO and NO2**) exhibit strong positive correlation with PM2.5 ($r = 0.78$ and $r = 0.52$), confirming vehicular exhaust and industrial brick kiln combustion as primary contributors.
+   - Temperature (TEMP) and Wind Speed (WSPM) correlate negatively with PM2.5 ($-0.55$ and $-0.36$), evidencing boundary layer entrapment under cold, stagnant conditions.
 
-2. **Station-Wise Particulate Distribution (Row 1, Right)**:
-   - **Dhaka** and **Rajshahi** record the highest median PM2.5 concentrations and the highest frequency of dangerous spikes (> 150 ug/m3).
-   - **Sylhet** and **Chittagong** display lower baseline medians with periodic coastal and transboundary excursions.
-   - **Khulna** and **Barisal** act as intermediate regional transit corridors.
+2. **PM2.5 Distribution by City (Top-Right)**:
+   - **Dhaka** and **Rajshahi** record the highest median PM2.5 concentrations and the greatest density of extreme outliers breaching the 150 ug/m3 hazardous threshold (reaching over 300 ug/m3).
+   - **Sylhet** and **Chittagong** display lower median baseline levels with episodic spike excursions.
+   - **Khulna** and **Barisal** exhibit moderate median levels with substantial right-skewed outlier tails.
 
-3. **Diurnal and Seasonal Cycles (Row 2)**:
-   - The diurnal hourly curve (Left) exhibits clear bimodal peaks: a morning rush hour peak (07:00 to 09:00) and an intense late evening peak (20:00 to 23:00) driven by boundary layer collapse.
-   - The monthly curve (Right) illustrates extreme seasonal variability: winter months (November to February) reach peak concentration, while monsoon rains (June to August) scavenge particulates down to clean baselines.
+3. **Diurnal Cycle by Hour of Day (Bottom-Left)**:
+   - PM2.5 concentration follows a pronounced bimodal diurnal pattern.
+   - Concentrations rise in the morning rush hour and peak strongly between 14:00 and 17:00, remaining elevated into late evening due to nocturnal boundary layer collapse and temperature inversion.
 
-4. **Multi-Year Spike Frequency Timeline and Autocorrelation (Row 3)**:
-   - Daily aggregations across 2022 to 2026 (Left) show hazardous spikes clustering heavily during winter episodes, reaching over 40 concurrent city-hour spikes per day.
-   - Autocorrelation in Dhaka (Right) confirms strong temporal persistence ($r > 0.90$ at lag 1h, $r > 0.80$ at lag 3h), proving that autoregressive features have high predictive value.
-
-5. **Univariate Feature Distributions (Row 4)**:
-   - The 10 criteria parameters display pronounced right-skewness for pollutants, motivating non-parametric tree ensembles and percentile-based outlier capping.
+4. **Monthly Seasonality Check (Bottom-Right)**:
+   - Severe seasonal cycle: concentrations peak during winter (January and February, exceeding 80 ug/m3 monthly average), driven by dry weather, brick kiln operations, and persistent thermal inversions.
+   - Concentrations decline steeply during the summer monsoon (June and July, dropping below 20 ug/m3) due to heavy precipitation scavenging particulates from the atmosphere.
 
 ---
 
@@ -128,7 +125,7 @@ Key processing steps:
 Notebook 03 computes 72 engineered features capturing temporal inertia, atmospheric physics, wind advection, and regional spatial consensus.
 
 #### Visual Collage: Spatial Distances, Wind Vectors, and Regional Consensus
-Below are all visual outputs generated in `03_feature_engineering.ipynb`, presented at uniform height and uncompressed resolution:
+Below are the visual outputs generated in `03_feature_engineering.ipynb`, presented at uniform height and uncompressed resolution:
 
 <img src="figures/collage_03_feature_engineering.png" width="100%" alt="Notebook 03 Feature Engineering Collage" />
 
@@ -192,24 +189,23 @@ Notebook 04 extracts macro-level pollution dynamics via unsupervised pattern min
 
 ---
 
-### Notebook 05: Predictive Modeling and Benchmark (`05_modeling.ipynb`)
+### Notebook 05: Predictive Modeling and Evaluation (`05_modeling.ipynb`)
 
 Notebook 05 builds and evaluates multi-horizon forecasting models for $t+1\text{h}$, $t+2\text{h}$, and $t+3\text{h}$.
 
-#### Visual Collage: Multi-Horizon Model Performance and Evaluation Suite
+#### Visual Collage: Validation Evaluation Curves and Confusion Matrices
 
-<img src="figures/collage_05_modeling.png" width="100%" alt="Notebook 05 Modeling Collage" />
+<img src="figures/collage_05_modeling.png" width="100%" alt="Notebook 05 Modeling Evaluation Collage" />
 
 Key modeling components:
-- **Evaluation Suite (Top Row)**: ROC curves (Left) and Precision-Recall curves (Right) across horizons $t+1\text{h}$, $t+2\text{h}$, and $t+3\text{h}$, illustrating strong discriminatory capacity under severe class imbalance.
-- **Confusion Matrices (Middle Row)**: Confusion matrices evaluated on the holdout test set across alert thresholds calibrated to maximize F1-score.
-- **Model Performance Dashboard (Bottom Row)**: Multi-metric validation dashboard comparing precision, recall, F1, PR-AUC, and class probability distributions.
+- **Evaluation Curves (Row 1)**: ROC curves (Left) and Precision-Recall curves (Right) across horizons $t+1\text{h}$, $t+2\text{h}$, and $t+3\text{h}$, illustrating discrimination under severe positive class rarity.
+- **Confusion Matrices (Row 2)**: Holdout test set confusion matrices evaluated at calibrated decision thresholds for each lead time, demonstrating high true-positive retention with minimal false alarms.
 
 ---
 
 ## Condensed Model Performance Benchmark
 
-Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **CatBoost**—were benchmarked across all three forecast horizons on the unseen holdout test set (28,944 records).
+Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **CatBoost**—were systematically evaluated across all three forecast horizons on the unseen holdout test set (28,944 records).
 
 <img src="figures/05_model_performance_comparison.png" width="100%" alt="Model Performance Comparison" />
 
@@ -232,7 +228,7 @@ Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **Cat
 - **Horizon Degradation Profile**:
   - At **t+1h**, all models achieve high predictive accuracy (PR-AUC $> 0.91$, F1 $> 0.80$), driven by short-term persistence and immediate spatial neighbor consensus.
   - At **t+2h**, XGBoost maintains practical utility (PR-AUC $= 0.806$, F1 $= 0.741$, Recall $= 75.9\%$).
-  - At **t+3h**, rapid atmospheric dispersion increases uncertainty. However, calibrated threshold tuning ($0.105$) allows XGBoost to maintain an **$80.7\%$ recall rate**, detecting 67 of 83 holdout spikes.
+  - At **t+3h**, rapid atmospheric dispersion increases uncertainty. Calibrated threshold tuning ($0.105$) enables XGBoost to maintain an **$80.7\%$ recall rate**, detecting 67 of 83 holdout spikes.
 - **Threshold Shift**: Optimal decision thresholds decrease systematically as the horizon expands ($0.405 \to 0.385 \to 0.105$), compensating for broader predictive uncertainty at longer lead times.
 
 ---
@@ -240,8 +236,6 @@ Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **Cat
 ## Model Interpretability and Feature Attribution (SHAP)
 
 Tree SHAP (SHapley Additive exPlanations) was applied to the best-performing XGBoost models to ensure alignment with atmospheric physics.
-
-<img src="figures/dashboard.png" width="100%" alt="SHAP Summary Dashboard" />
 
 <img src="figures/shap_combined_t1.png" width="100%" alt="SHAP Attribution t+1h" />
 
@@ -290,16 +284,13 @@ DataMining-Project/
 ├── generate_visuals.py                    # Script generating all publication figures
 │
 ├── figures/                               # Publication-quality figures for README
-│   ├── collage_01_eda.png                 # Complete 8-plot visual collage for Notebook 01
-│   ├── collage_02_preprocessing.png       # Complete 3-panel visual collage for Notebook 02
-│   ├── collage_03_feature_engineering.png # Complete 3-panel visual collage for Notebook 03
-│   ├── collage_04_pattern_mining.png      # Complete 2-panel visual collage for Notebook 04
-│   ├── collage_05_modeling.png            # Complete multi-panel evaluation collage for Notebook 05
-│   ├── 05_model_performance_comparison.png# Condensed benchmark across models & horizons
-│   ├── dashboard.png                      # SHAP multi-horizon importance overview
-│   ├── shap_combined_t1.png               # SHAP beeswarm and bar summary for t+1h
-│   ├── shap_combined_t2.png               # SHAP beeswarm and bar summary for t+2h
-│   ├── shap_combined_t3.png               # SHAP beeswarm and bar summary for t+3h
+│   ├── collage_01_eda.png                 # 4-panel visual collage for Notebook 01
+│   ├── collage_02_preprocessing.png       # 3-panel visual collage for Notebook 02
+│   ├── collage_03_feature_engineering.png # 3-panel visual collage for Notebook 03
+│   ├── collage_04_pattern_mining.png      # 2-panel visual collage for Notebook 04
+│   ├── collage_05_modeling.png            # ROC/PR and confusion matrices collage for Notebook 05
+│   ├── 05_model_performance_comparison.png# Condensed benchmark comparison across models & horizons
+│   ├── shap_combined_t1.png               # SHAP beeswarm and feature attribution summary
 │   └── system_architecture_pipeline.jpg   # End-to-end pipeline architecture diagram
 │
 └── notebooks/                             # Core experimental workflow
