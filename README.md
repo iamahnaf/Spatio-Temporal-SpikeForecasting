@@ -8,7 +8,7 @@ A multi-city machine learning framework for early detection of hazardous PM2.5 p
 1. [Project Overview and Motivation](#project-overview-and-motivation)
 2. [Dataset and Study Region](#dataset-and-study-region)
 3. [End-to-End System Architecture](#end-to-end-system-architecture)
-4. [Notebook-by-Notebook Methodology](#notebook-by-notebook-methodology)
+4. [Notebook-by-Notebook Methodology and Visual Collages](#notebook-by-notebook-methodology-and-visual-collages)
    - [Notebook 01: Exploratory Data Analysis (01_eda.ipynb)](#notebook-01-exploratory-data-analysis-01_edaipynb)
    - [Notebook 02: Preprocessing and Validation Protocol (02_preprocessing.ipynb)](#notebook-02-preprocessing-and-validation-protocol-02_preprocessingipynb)
    - [Notebook 03: Spatio-Temporal Feature Engineering (03_feature_engineering.ipynb)](#notebook-03-spatio-temporal-feature-engineering-03_feature_engineeringipynb)
@@ -58,7 +58,7 @@ The dataset contains continuous hourly observations from six major administrativ
 
 The forecasting pipeline is structured across five sequential Jupyter notebooks and standalone benchmark scripts, ensuring strict separation between training and evaluation data.
 
-<img src="figures/system_architecture_pipeline.jpg" width="650" alt="System Architecture Pipeline" />
+<img src="figures/system_architecture_pipeline.jpg" width="100%" alt="System Architecture Pipeline" />
 
 The pipeline executes through five modular stages:
 1. **Exploratory Data Analysis**: Missing data identification, temporal autocorrelation, diurnal and seasonal profile characterization.
@@ -69,31 +69,39 @@ The pipeline executes through five modular stages:
 
 ---
 
-## Notebook-by-Notebook Methodology
+## Notebook-by-Notebook Methodology and Visual Collages
 
 ### Notebook 01: Exploratory Data Analysis (`01_eda.ipynb`)
 
 Notebook 01 establishes the empirical foundations of regional air pollution in Bangladesh, analyzing data completeness, statistical distributions, multi-pollutant correlations, temporal persistence, and hazardous spike occurrences.
 
-#### 1. Multi-Pollutant and Meteorological Correlation Matrix
-Strong collinearity is observed between **PM2.5 and PM10** ($r = 0.88$), indicating that particulate episodes consistently involve both fine combustion aerosols and coarser dust particles. Gaseous combustion markers (**CO and NO2**) exhibit positive correlations with PM2.5 ($r = 0.62$ and $r = 0.58$), confirming that vehicular exhaust and brick kiln combustion are dominant drivers. Conversely, temperature and wind speed correlate negatively with PM2.5 due to atmospheric boundary layer trapping during cold, stagnant conditions.
+#### Visual Collage: Complete Exploratory Analysis
+Below is the complete visual compilation of all empirical analyses generated in `01_eda.ipynb`:
 
-<img src="figures/eda_correlation_matrix.png" width="520" alt="Correlation Matrix" />
+<img src="figures/collage_01_eda.png" width="100%" alt="Notebook 01 EDA Collage" />
 
-#### 2. Multi-Year Daily Spike Frequency Timeline
-Daily aggregations across 2022 to 2026 reveal extreme temporal seasonality. Severe spike episodes cluster exclusively in winter months (November to February), reaching over 40 concurrent city-hour spikes per day, while monsoon periods (June to August) exhibit near-zero spike counts due to wet deposition.
+#### Detailed Analytical Insights
 
-<img src="figures/eda_spikes_timeseries.png" width="620" alt="Spikes Timeline" />
+1. **Multi-Pollutant and Meteorological Correlation Matrix (Row 1, Left)**:
+   - Strong collinearity is observed between **PM2.5 and PM10** ($r = 0.88$), indicating that particulate episodes consistently involve both fine combustion aerosols and coarser dust particles.
+   - Gaseous combustion markers (**CO and NO2**) exhibit positive correlations with PM2.5 ($r = 0.62$ and $r = 0.58$), confirming that vehicular exhaust and brick kiln combustion are dominant drivers.
+   - Temperature (TEMP) and Wind Speed (WSPM) display negative correlations with PM2.5, consistent with boundary layer entrapment during cold, stagnant conditions.
 
-#### 3. Autocorrelation and Temporal Memory
-Autocorrelation analysis in Dhaka confirms strong persistence: $r > 0.90$ at lag 1 hour, $r > 0.80$ at lag 3 hours, and statistically significant autocorrelation extending beyond 24 hours. This justifies the inclusion of extensive autoregressive lag structures.
+2. **Station-Wise Particulate Distribution (Row 1, Right)**:
+   - **Dhaka** and **Rajshahi** record the highest median PM2.5 concentrations and the highest frequency of dangerous spikes (> 150 ug/m3).
+   - **Sylhet** and **Chittagong** display lower baseline medians with periodic coastal and transboundary excursions.
+   - **Khulna** and **Barisal** act as intermediate regional transit corridors.
 
-<img src="figures/eda_autocorrelation_dhaka.png" width="520" alt="Autocorrelation Dhaka" />
+3. **Diurnal and Seasonal Cycles (Row 2)**:
+   - The diurnal hourly curve (Left) exhibits clear bimodal peaks: a morning rush hour peak (07:00 to 09:00) and an intense late evening peak (20:00 to 23:00) driven by boundary layer collapse.
+   - The monthly curve (Right) illustrates extreme seasonal variability: winter months (November to February) reach peak concentration, while monsoon rains (June to August) scavenge particulates down to clean baselines.
 
-#### 4. Univariate Feature Distributions
-The 10 primary numeric features exhibit severe right-skewness in criteria pollutants (PM2.5, PM10, SO2, NO2, CO), motivating non-parametric tree ensembles and percentile-based outlier capping.
+4. **Multi-Year Spike Frequency Timeline and Autocorrelation (Row 3)**:
+   - Daily aggregations across 2022 to 2026 (Left) show hazardous spikes clustering heavily during winter episodes, reaching over 40 concurrent city-hour spikes per day.
+   - Autocorrelation in Dhaka (Right) confirms strong temporal persistence ($r > 0.90$ at lag 1h, $r > 0.80$ at lag 3h), proving that autoregressive features have high predictive value.
 
-<img src="figures/eda_univariate_distributions.png" width="650" alt="Univariate Distributions" />
+5. **Univariate Feature Distributions (Row 4)**:
+   - The 10 criteria parameters display pronounced right-skewness for pollutants, motivating non-parametric tree ensembles and percentile-based outlier capping.
 
 ---
 
@@ -101,12 +109,14 @@ The 10 primary numeric features exhibit severe right-skewness in criteria pollut
 
 Notebook 02 prepares an audit-verified, leakage-free dataset and establishes a strict chronological evaluation partition.
 
-<img src="figures/02_preprocessing_pipeline.png" width="620" alt="Preprocessing Details" />
+#### Visual Collage: Preprocessing, Imputation, and Partition Architecture
+
+<img src="figures/collage_02_preprocessing.png" width="100%" alt="Notebook 02 Preprocessing Collage" />
 
 Key processing steps:
-- **Timestamp Completeness Audit**: Evaluated all six stations for hourly date-time continuity. Every station contains exactly **34,728 continuous hourly records** with **0 missing timestamp gaps** and **0 duplicate entries**.
-- **Station-Wise Winsorization**: Extreme instrument artifacts in `PM10, SO2, NO2, CO, O3, WSPM` were capped at the 1st and 99th percentiles computed independently per station. This preserves genuine hazardous spikes while suppressing spurious sensor overflow readings.
-- **Chronological Split Without Leakage**: Split strictly by timestamp at `SPLIT_DATE = 2026-01-01`:
+- **Timestamp Completeness Audit (Panel A)**: Evaluated all six stations for hourly date-time continuity. Every station contains exactly **34,728 continuous hourly records** with **0 missing timestamp gaps** and **0 duplicate entries**.
+- **Station-Wise Winsorization (Panel B)**: Extreme instrument artifacts in `PM10, SO2, NO2, CO, O3, WSPM` were capped at the 1st and 99th percentiles computed independently per station. This preserves genuine hazardous spikes while suppressing spurious sensor overflow readings.
+- **Chronological Split Without Leakage (Panel C)**: Split strictly by timestamp at `SPLIT_DATE = 2026-01-01`:
   - **Training Set**: August 4, 2022 to December 31, 2025 (**179,424 records**, 86.1%)
   - **Holdout Test Set**: January 1, 2026 to July 20, 2026 (**28,944 records**, 13.9%)
   - Zero future data leakage was introduced into feature scalers, imputation, or lag transformations.
@@ -117,33 +127,31 @@ Key processing steps:
 
 Notebook 03 computes 72 engineered features capturing temporal inertia, atmospheric physics, wind advection, and regional spatial consensus.
 
-#### 1. Regional Spatial Network and Haversine Distance Matrix
-A pairwise distance matrix was computed across all six monitoring stations using great-circle Haversine calculations:
+#### Visual Collage: Spatial Distances, Wind Vectors, and Regional Consensus
+Below are all visual outputs generated in `03_feature_engineering.ipynb`, presented at uniform height and uncompressed resolution:
 
-<img src="figures/fe_city_distance_matrix.png" width="450" alt="Distance Matrix Heatmap" />
+<img src="figures/collage_03_feature_engineering.png" width="100%" alt="Notebook 03 Feature Engineering Collage" />
 
-- Inter-station distances range from **112.5 km** (Khulna to Barisal) to **371.4 km** (Rajshahi to Chittagong).
-- These pairwise distances serve as inverse weighting coefficients for dynamic spatial consensus features:
-  $$\text{IDW}(\text{PM2.5}_i) = \frac{\sum_{j \ne i} d_{ij}^{-1} \cdot \text{PM2.5}_j}{\sum_{j \ne i} d_{ij}^{-1}}$$
-- The difference between a station's current measurement and the regional mean defines `regional_gap`:
-  $$\text{regional\_gap} = \text{PM2.5}_i - \text{regional\_mean}$$
+#### Component Details
 
-#### 2. Wind Vector Polar Decomposition
-Scalar wind speed and 16-point compass directions were converted to continuous orthogonal Cartesian components:
+1. **Regional Spatial Network and Haversine Distance Matrix (Left)**:
+   - Pairwise distance matrix computed across all six monitoring stations using great-circle Haversine calculations.
+   - Distances range from **112.5 km** (Khulna to Barisal) to **371.4 km** (Rajshahi to Chittagong).
+   - Serves as inverse weighting coefficients for dynamic spatial consensus:
+     $$\text{IDW}(\text{PM2.5}_i) = \frac{\sum_{j \ne i} d_{ij}^{-1} \cdot \text{PM2.5}_j}{\sum_{j \ne i} d_{ij}^{-1}}$$
+   - Station divergence from the regional mean defines `regional_gap`:
+     $$\text{regional\_gap} = \text{PM2.5}_i - \text{regional\_mean}$$
 
-<img src="figures/fe_wind_vector_decomposition.png" width="420" alt="Wind Vector Decomposition" />
+2. **Wind Vector Polar Decomposition (Center)**:
+   - Scalar wind speed (`WSPM`) and 16-point compass directions (`wd`) were transformed into continuous Cartesian advection forces:
+     $$u = -\text{WSPM} \cdot \sin\left(\text{wd} \cdot \frac{\pi}{180}\right), \quad v = -\text{WSPM} \cdot \cos\left(\text{wd} \cdot \frac{\pi}{180}\right)$$
+   - Allows decision tree splits to cleanly partition directional advection carrying regional plumes into urban centers.
 
-$$u = -\text{WSPM} \cdot \sin\left(\text{wd} \cdot \frac{\pi}{180}\right), \quad v = -\text{WSPM} \cdot \cos\left(\text{wd} \cdot \frac{\pi}{180}\right)$$
-This enables gradient boosting trees to split linearly on directional advection forces carrying upstream pollution plumes.
+3. **Spatial Neighbor Alignment and Consensus (Right)**:
+   - Scatter analysis of local PM2.5 versus distance-weighted neighbor readings (`idw_pm25_neighbors`).
+   - Points along the diagonal reflect regional background haze, while points high above the diagonal represent acute localized point-source surges.
 
-#### 3. Spatial Neighbor Alignment and Consensus
-Correlating local PM2.5 against distance-weighted neighbor readings (`idw_pm25_neighbors`) confirms strong regional coherence alongside distinct localized divergence:
-
-<img src="figures/fe_idw_neighbor_correlation.png" width="420" alt="IDW Neighbor Correlation" />
-
-Points situated far above the diagonal represent intense localized point-source spikes, while points along the diagonal represent macro-scale regional haze blankets.
-
-#### Summary of Feature Domains
+#### Summary of 7 Engineered Feature Domains
 1. **Autoregressive Lags**: Historical values at $t-1, t-2, t-3, t-6, t-12, t-24$ hours for PM2.5, PM10, and CO.
 2. **Rolling Statistics**: Rolling mean, standard deviation, minimum, and maximum over 3, 6, 12, and 24-hour windows.
 3. **Multi-Pollutant Stoichiometric Ratios**: $\text{PM2.5} / \text{PM10}$ (combustion aerosol fraction), $\text{NO}_2 / \text{SO}_2$ (mobile vs. stationary combustion), $\text{CO} / \text{NO}_2$ (combustion completeness).
@@ -158,27 +166,29 @@ Points situated far above the diagonal represent intense localized point-source 
 
 Notebook 04 extracts macro-level pollution dynamics via unsupervised pattern mining algorithms, injecting these signals as features into downstream supervised models.
 
-#### 1. Spatio-Temporal Clustering (ST-DBSCAN)
-- **Objective**: Identify cohesive pollution plumes propagating across multiple cities over consecutive hours.
-- **Parameters**: Spatial threshold $\varepsilon_{\text{spatial}} = 120\text{ km}$, temporal threshold $\varepsilon_{\text{temporal}} = 3\text{ hours}$, minimum samples $= 3$ stations.
-- **Output Features**:
-  - `in_plume`: Binary indicator for whether an observation belongs to an active regional plume.
-  - `plume_size`: Magnitude of the plume measured in total co-occurring city-hour events.
-- **Result**: Identified 41 discrete regional plume episodes, accounting for 6.41% of elevated pollution hours in the training set.
+#### Visual Collage: ST-DBSCAN Plume Clusters and Apriori Propagation Rules
 
-<img src="figures/pm_st_dbscan_clusters.png" width="520" alt="ST-DBSCAN Clusters" />
+<img src="figures/collage_04_pattern_mining.png" width="100%" alt="Notebook 04 Pattern Mining Collage" />
 
-#### 2. Cross-City Association Rule Mining (Apriori)
-- **Objective**: Discover directional propagation rules of the form $[\text{City}_A \text{ elevated at } t-k] \implies [\text{City}_B \text{ elevated at } t]$.
-- **Parameters**: Minimum support = 0.01, minimum confidence = 0.30, maximum itemset length = 2.
-- **Discovered Transport Corridors**:
-  - $\text{Dhaka}_{t-1} \implies \text{Chittagong}_t$ (Confidence: 0.84, Lift: 3.8x)
-  - $\text{Dhaka}_{t-2} \implies \text{Sylhet}_t$ (Confidence: 0.78, Lift: 3.4x)
-  - $\text{Khulna}_{t-1} \implies \text{Barisal}_t$ (Confidence: 0.76, Lift: 4.1x)
-  - $\text{Rajshahi}_{t-1} \implies \text{Dhaka}_t$ (Confidence: 0.72, Lift: 3.1x)
-- **Output Feature**: `apriori_propagation_signal`, encoding the maximum confidence of any triggered propagation rule targeting that city.
+#### Methodological Details
 
-<img src="figures/pm_apriori_propagation_rules.png" width="540" alt="Apriori Rules" />
+1. **Spatio-Temporal Clustering via ST-DBSCAN (Left)**:
+   - **Objective**: Identify cohesive pollution plumes propagating across multiple cities over consecutive hours.
+   - **Parameters**: Spatial threshold $\varepsilon_{\text{spatial}} = 120\text{ km}$, temporal threshold $\varepsilon_{\text{temporal}} = 3\text{ hours}$, minimum samples $= 3$ stations.
+   - **Outputs**:
+     - `in_plume`: Binary indicator for whether an observation belongs to an active regional plume.
+     - `plume_size`: Magnitude of the plume measured in total co-occurring city-hour events.
+   - **Result**: Identified 41 discrete regional plume episodes, accounting for 6.41% of elevated pollution hours in the training set.
+
+2. **Cross-City Association Rule Mining via Apriori (Right)**:
+   - **Objective**: Discover directional propagation rules of the form $[\text{City}_A \text{ elevated at } t-k] \implies [\text{City}_B \text{ elevated at } t]$.
+   - **Parameters**: Minimum support = 0.01, minimum confidence = 0.30, maximum itemset length = 2.
+   - **Discovered Transport Corridors**:
+     - $\text{Dhaka}_{t-1} \implies \text{Chittagong}_t$ (Confidence: 0.84, Lift: 3.8x)
+     - $\text{Dhaka}_{t-2} \implies \text{Sylhet}_t$ (Confidence: 0.78, Lift: 3.4x)
+     - $\text{Khulna}_{t-1} \implies \text{Barisal}_t$ (Confidence: 0.76, Lift: 4.1x)
+     - $\text{Rajshahi}_{t-1} \implies \text{Dhaka}_t$ (Confidence: 0.72, Lift: 3.1x)
+   - **Output Feature**: `apriori_propagation_signal`, encoding the maximum confidence of any active propagation rule targeting that city.
 
 ---
 
@@ -186,18 +196,22 @@ Notebook 04 extracts macro-level pollution dynamics via unsupervised pattern min
 
 Notebook 05 builds and evaluates multi-horizon forecasting models for $t+1\text{h}$, $t+2\text{h}$, and $t+3\text{h}$.
 
-Key modeling methodology:
-- **Validation Scheme**: 5-fold expanding-window `TimeSeriesSplit` on the training partition, ensuring temporal causality.
-- **Hyperparameter Optimization**: Randomized search over maximum tree depth, learning rate, column subsampling, and minimum child weight.
-- **Calibrated Threshold Tuning**: Due to severe class imbalance (0.875% positive class prevalence), standard 0.50 decision boundaries miss significant portions of true spikes. Optimal thresholds were determined via grid search $[0.05, 0.95]$ on validation folds to maximize F1-score.
+#### Visual Collage: Multi-Horizon Model Performance and Evaluation Suite
+
+<img src="figures/collage_05_modeling.png" width="100%" alt="Notebook 05 Modeling Collage" />
+
+Key modeling components:
+- **Evaluation Suite (Top Row)**: ROC curves (Left) and Precision-Recall curves (Right) across horizons $t+1\text{h}$, $t+2\text{h}$, and $t+3\text{h}$, illustrating strong discriminatory capacity under severe class imbalance.
+- **Confusion Matrices (Middle Row)**: Confusion matrices evaluated on the holdout test set across alert thresholds calibrated to maximize F1-score.
+- **Model Performance Dashboard (Bottom Row)**: Multi-metric validation dashboard comparing precision, recall, F1, PR-AUC, and class probability distributions.
 
 ---
 
 ## Condensed Model Performance Benchmark
 
-Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **CatBoost**—were benchmarked across all three forecast horizons on the unseen holdout test set.
+Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **CatBoost**—were benchmarked across all three forecast horizons on the unseen holdout test set (28,944 records).
 
-<img src="figures/05_model_performance_comparison.png" width="650" alt="Model Performance Comparison" />
+<img src="figures/05_model_performance_comparison.png" width="100%" alt="Model Performance Comparison" />
 
 ### Summary Benchmark Table
 
@@ -227,9 +241,9 @@ Three gradient-boosted tree architectures—**XGBoost**, **LightGBM**, and **Cat
 
 Tree SHAP (SHapley Additive exPlanations) was applied to the best-performing XGBoost models to ensure alignment with atmospheric physics.
 
-<img src="figures/dashboard.png" width="650" alt="SHAP Summary Dashboard" />
+<img src="figures/dashboard.png" width="100%" alt="SHAP Summary Dashboard" />
 
-<img src="figures/shap_combined_t1.png" width="600" alt="SHAP Attribution t+1h" />
+<img src="figures/shap_combined_t1.png" width="100%" alt="SHAP Attribution t+1h" />
 
 ### Top-10 Global Feature Importances
 
@@ -251,7 +265,7 @@ Tree SHAP (SHapley Additive exPlanations) was applied to the best-performing XGB
 ## Recommended Production Models
 
 ```
-Recommended Configuration:
+Recommended Production Configuration:
 - Horizon t+1h: XGBoost (threshold = 0.405) -> F1: 0.867 | Recall: 90.4% | PR-AUC: 0.930
 - Horizon t+2h: XGBoost (threshold = 0.385) -> F1: 0.741 | Recall: 75.9% | PR-AUC: 0.806
 - Horizon t+3h: XGBoost (threshold = 0.105) -> F1: 0.554 | Recall: 80.7% | PR-AUC: 0.624
@@ -272,19 +286,15 @@ DataMining-Project/
 ├── Bangladesh_Multi_Site_Air_Quality.csv   # Raw 6-city hourly air quality dataset
 ├── Project idea.txt                       # Initial research proposal and specifications
 ├── DATA MINING PROPOSAL.pptx               # Project presentation slides
+├── build_clean_collages.py                # Script compiling high-resolution collages
 ├── generate_visuals.py                    # Script generating all publication figures
 │
 ├── figures/                               # Publication-quality figures for README
-│   ├── eda_correlation_matrix.png         # Multi-pollutant correlation heatmap (NB 01)
-│   ├── eda_spikes_timeseries.png          # 4-year daily spike count timeline (NB 01)
-│   ├── eda_autocorrelation_dhaka.png      # PM2.5 autocorrelation decay function (NB 01)
-│   ├── eda_univariate_distributions.png   # 10-feature univariate distributions (NB 01)
-│   ├── 02_preprocessing_pipeline.png      # Preprocessing, imputation, and temporal split
-│   ├── fe_city_distance_matrix.png        # Inter-city Haversine distance matrix (NB 03)
-│   ├── fe_wind_vector_decomposition.png   # Wind vector Cartesian decomposition (NB 03)
-│   ├── fe_idw_neighbor_correlation.png    # Station PM2.5 vs IDW spatial consensus (NB 03)
-│   ├── pm_st_dbscan_clusters.png          # ST-DBSCAN plume cluster size distribution (NB 04)
-│   ├── pm_apriori_propagation_rules.png   # Top mined cross-city propagation rules (NB 04)
+│   ├── collage_01_eda.png                 # Complete 8-plot visual collage for Notebook 01
+│   ├── collage_02_preprocessing.png       # Complete 3-panel visual collage for Notebook 02
+│   ├── collage_03_feature_engineering.png # Complete 3-panel visual collage for Notebook 03
+│   ├── collage_04_pattern_mining.png      # Complete 2-panel visual collage for Notebook 04
+│   ├── collage_05_modeling.png            # Complete multi-panel evaluation collage for Notebook 05
 │   ├── 05_model_performance_comparison.png# Condensed benchmark across models & horizons
 │   ├── dashboard.png                      # SHAP multi-horizon importance overview
 │   ├── shap_combined_t1.png               # SHAP beeswarm and bar summary for t+1h
@@ -314,7 +324,7 @@ DataMining-Project/
 
 ### Prerequisites
 - Python 3.10+ (Tested on Python 3.11 and 3.14)
-- Core libraries: `numpy`, `pandas`, `scipy`, `scikit-learn`, `xgboost`, `lightgbm`, `catboost`, `shap`, `matplotlib`, `seaborn`, `mlxtend`
+- Core libraries: `numpy`, `pandas`, `scipy`, `scikit-learn`, `xgboost`, `lightgbm`, `catboost`, `shap`, `matplotlib`, `seaborn`, `mlxtend`, `pillow`
 
 ### Setup Steps
 
@@ -335,11 +345,12 @@ DataMining-Project/
 
 3. **Install Dependencies**:
    ```bash
-   pip install numpy pandas scipy scikit-learn xgboost lightgbm catboost shap matplotlib seaborn mlxtend
+   pip install numpy pandas scipy scikit-learn xgboost lightgbm catboost shap matplotlib seaborn mlxtend pillow
    ```
 
-4. **Regenerate Publication Figures**:
+4. **Regenerate Collages and Publication Figures**:
    ```bash
+   python build_clean_collages.py
    python generate_visuals.py
    ```
 
