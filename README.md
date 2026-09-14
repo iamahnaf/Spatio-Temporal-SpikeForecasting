@@ -33,7 +33,7 @@ Key research contributions include:
 - **Physical Atmospheric Dynamics**: Integration of wind vector advection components ($u, v$) and a thermal boundary layer inversion proxy:
   $$\text{Inversion Proxy} = \frac{\text{TEMP}}{\text{WSPM} + 0.1}$$
 - **Multi-Site Spatial Consensus**: Dynamic Inverse Distance Weighting (IDW) across six regional stations and computation of regional divergence:
-  $$\text{regional\_gap} = \text{PM2.5}_i - \text{regional\_mean}$$
+  $$\text{Regional Gap}_i = \text{PM2.5}_i - \overline{\text{PM2.5}}_{\text{regional}}$$
 - **Unsupervised Pattern Mining as Feature Extractors**: Extraction of spatio-temporal plume clusters via ST-DBSCAN and cross-city propagation signals via Apriori association rule mining.
 
 ---
@@ -137,7 +137,7 @@ Below are the visual outputs generated in `03_feature_engineering.ipynb`, presen
    - Serves as inverse weighting coefficients for dynamic spatial consensus:
      $$\text{IDW}(\text{PM2.5}_i) = \frac{\sum_{j \ne i} d_{ij}^{-1} \cdot \text{PM2.5}_j}{\sum_{j \ne i} d_{ij}^{-1}}$$
    - Station divergence from the regional mean defines `regional_gap`:
-     $$\text{regional\_gap} = \text{PM2.5}_i - \text{regional\_mean}$$
+     $$\text{Regional Gap}_i = \text{PM2.5}_i - \overline{\text{PM2.5}}_{\text{regional}}$$
 
 2. **Wind Vector Polar Decomposition (Center)**:
    - Scalar wind speed (`WSPM`) and 16-point compass directions (`wd`) were transformed into continuous Cartesian advection forces:
