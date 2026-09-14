@@ -201,8 +201,7 @@ for name, desc, col in groups:
     axes[1].text(0.08, y_pos - 0.05, desc, fontsize=9, color='#333333', va='center')
     y_pos -= 0.13
 
-plt.tight_layout()
-plt.savefig("figures/03_spatial_network_features.png", dpi=300)
+plt.savefig("figures/03_spatial_network_features.png", dpi=300, bbox_inches='tight')
 plt.close()
 
 # -------------------------------------------------------------
